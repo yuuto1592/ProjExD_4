@@ -141,7 +141,7 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: float = 0.0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
@@ -149,9 +149,10 @@ class Beam(pg.sprite.Sprite):
         super().__init__()
         self.vx, self.vy = bird.dire
         angle = math.degrees(math.atan2(-self.vy, self.vx))
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
-        self.vx = math.cos(math.radians(angle))
-        self.vy = -math.sin(math.radians(angle))
+        change_angle = angle + angle0
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), change_angle, 1.0)
+        self.vx = math.cos(math.radians(change_angle))
+        self.vy = -math.sin(math.radians(change_angle))
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
@@ -167,6 +168,26 @@ class Beam(pg.sprite.Sprite):
             self.kill()
 
 
+class NeoBeam:
+    """
+    追加機能6: 弾幕（多方向ビーム）を管理するクラス
+    """
+    def __init__(self, bird: Bird, num: int):
+        self.bird = bird
+        self.num = num
+
+    def gen_beams(self) -> list[Beam]:
+        beams_list = []
+        if self.num > 1:
+            step = 100 / (self.num - 1)  # -50から+50（範囲100）を均等に分けるステップ
+            for i in range(self.num):
+                angle0 = -50 + step * i
+                beams_list.append(Beam(self.bird, angle0))
+        else:
+            beams_list.append(Beam(self.bird, 0))
+        return beams_list
+    
+    
 class Explosion(pg.sprite.Sprite):
     """
     爆発に関するクラス
@@ -262,7 +283,13 @@ def main():
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+                if key_lst[pg.K_LSHIFT]:  # 左Shiftも押されていたら弾幕
+                    neo_beam = NeoBeam(bird, 5)
+                    for b in neo_beam.gen_beams():
+                        beams.add(b)
+                else:
+                    beams.add(Beam(bird))
+                
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
