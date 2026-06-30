@@ -72,6 +72,8 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        self.state = "normal"  # 追加点
+        self.hyper_life = 0  # 追加点
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -98,7 +100,15 @@ class Bird(pg.sprite.Sprite):
             self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
-            self.image = self.imgs[self.dire]
+        self.image = self.imgs[self.dire]  # 追加点(インデント調整)
+        # ==========↓追加点↓==========
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.image.set_colorkey((0, 0, 0))
+            self.hyper_life -= 1
+            if self.hyper_life < 0:
+                self.state = "normal"
+        # ==========↑追加点↑==========
         screen.blit(self.image, self.rect)
 
 
@@ -403,6 +413,12 @@ def main():
                 gravitys.add(Gravity(400))
                 
                 
+            # ==========↓追加点↓==========
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and score.value > 100:
+                score.value -= 100
+                bird.state = "hyper"
+                bird.hyper_life = 500
+            # ==========↑追加点↑==========
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -415,11 +431,14 @@ def main():
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # ビームと衝突した敵機リスト
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            score.value += 10 # 10点アップ
+            score.value += 10000000000000 # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for emy in pg.sprite.groupcollide(emys,gravitys,True,False).keys():
             exps.add(Explosion(emy,100))
+
+        for bomb in pg.sprite.groupcollide(bombs,gravitys,True,False).keys():
+            exps.add(Explosion(bomb, 50))
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
@@ -433,8 +452,13 @@ def main():
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             if bomb.state == "inactive":
                 continue
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            life.num -= 1
+            # ==========↓追加点↓==========
+            if bird.state == "hyper":
+                exps.add(Explosion(bomb, 50))
+                score.value += 1
+            else:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                life.num -= 1
             bombs.empty()
             if life.num <= 0:
                 screen.blit(bg_img,[0,0])
@@ -444,6 +468,7 @@ def main():
                 pg.display.update()
                 time.sleep(2)
                 return
+            # ==========↑追加点↑==========
 
         bird.update(key_lst, screen)
         beams.update()
